@@ -1,0 +1,363 @@
+<html>
+<head>
+<title>server3.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #7a7e85;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #2aacb8;}
+.s5 { color: #5f826b; font-style: italic;}
+.s6 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+server3.py</font>
+</center></td></tr></table>
+<pre><span class="s0">################################################################################</span>
+<span class="s0">#</span>
+<span class="s0">#  Permission is hereby granted, free of charge, to any person obtaining a</span>
+<span class="s0">#  copy of this software and associated documentation files (the &quot;Software&quot;),</span>
+<span class="s0">#  to deal in the Software without restriction, including without limitation</span>
+<span class="s0">#  the rights to use, copy, modify, merge, publish, distribute, sublicense,</span>
+<span class="s0">#  and/or sell copies of the Software, and to permit persons to whom the</span>
+<span class="s0">#  Software is furnished to do so, subject to the following conditions:</span>
+<span class="s0">#</span>
+<span class="s0">#  The above copyright notice and this permission notice shall be included in</span>
+<span class="s0">#  all copies or substantial portions of the Software.</span>
+<span class="s0">#</span>
+<span class="s0">#  THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS</span>
+<span class="s0">#  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,</span>
+<span class="s0">#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE</span>
+<span class="s0">#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER</span>
+<span class="s0">#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING</span>
+<span class="s0">#  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER</span>
+<span class="s0">#  DEALINGS IN THE SOFTWARE.</span>
+
+<span class="s2">import </span><span class="s1">csv</span>
+<span class="s0"># from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer</span>
+<span class="s2">import </span><span class="s1">http</span><span class="s3">.</span><span class="s1">server</span>
+<span class="s2">import </span><span class="s1">json</span>
+<span class="s2">import </span><span class="s1">operator</span>
+<span class="s2">import </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span>
+<span class="s2">import </span><span class="s1">re</span>
+<span class="s2">import </span><span class="s1">threading</span>
+<span class="s2">from </span><span class="s1">datetime </span><span class="s2">import </span><span class="s1">timedelta</span><span class="s3">, </span><span class="s1">datetime</span>
+<span class="s0"># from itertools import izip</span>
+<span class="s2">from </span><span class="s1">random </span><span class="s2">import </span><span class="s1">normalvariate</span><span class="s3">, </span><span class="s1">random</span>
+<span class="s2">from </span><span class="s1">socketserver </span><span class="s2">import </span><span class="s1">ThreadingMixIn</span>
+
+<span class="s2">import </span><span class="s1">dateutil</span><span class="s3">.</span><span class="s1">parser</span>
+
+<span class="s0">################################################################################</span>
+<span class="s0">#</span>
+<span class="s0"># Config</span>
+
+<span class="s0"># Sim params</span>
+
+<span class="s1">REALTIME </span><span class="s3">= </span><span class="s2">True</span>
+<span class="s1">SIM_LENGTH </span><span class="s3">= </span><span class="s1">timedelta</span><span class="s3">(</span><span class="s1">days</span><span class="s3">=</span><span class="s4">365 </span><span class="s3">* </span><span class="s4">5</span><span class="s3">)</span>
+<span class="s1">MARKET_OPEN </span><span class="s3">= </span><span class="s1">datetime</span><span class="s3">.</span><span class="s1">today</span><span class="s3">().</span><span class="s1">replace</span><span class="s3">(</span><span class="s1">hour</span><span class="s3">=</span><span class="s4">0</span><span class="s3">, </span><span class="s1">minute</span><span class="s3">=</span><span class="s4">30</span><span class="s3">, </span><span class="s1">second</span><span class="s3">=</span><span class="s4">0</span><span class="s3">)</span>
+
+<span class="s0"># Market parms</span>
+<span class="s0">#       min  / max  / std</span>
+<span class="s1">SPD </span><span class="s3">= (</span><span class="s4">2.0</span><span class="s3">, </span><span class="s4">6.0</span><span class="s3">, </span><span class="s4">0.1</span><span class="s3">)</span>
+<span class="s1">PX </span><span class="s3">= (</span><span class="s4">60.0</span><span class="s3">, </span><span class="s4">150.0</span><span class="s3">, </span><span class="s4">1</span><span class="s3">)</span>
+<span class="s1">FREQ </span><span class="s3">= (</span><span class="s4">12</span><span class="s3">, </span><span class="s4">36</span><span class="s3">, </span><span class="s4">50</span><span class="s3">)</span>
+
+<span class="s0"># Trades</span>
+
+<span class="s1">OVERLAP </span><span class="s3">= </span><span class="s4">4</span>
+
+
+<span class="s0">################################################################################</span>
+<span class="s0">#</span>
+<span class="s0"># Test Data</span>
+
+<span class="s2">def </span><span class="s1">bwalk</span><span class="s3">(</span><span class="s1">min</span><span class="s3">, </span><span class="s1">max</span><span class="s3">, </span><span class="s1">std</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Generates a bounded random walk. &quot;&quot;&quot;</span>
+    <span class="s1">rng </span><span class="s3">= </span><span class="s1">max </span><span class="s3">- </span><span class="s1">min</span>
+    <span class="s2">while True</span><span class="s3">:</span>
+        <span class="s1">max </span><span class="s3">+= </span><span class="s1">normalvariate</span><span class="s3">(</span><span class="s4">0</span><span class="s3">, </span><span class="s1">std</span><span class="s3">)</span>
+        <span class="s2">yield </span><span class="s1">abs</span><span class="s3">((</span><span class="s1">max </span><span class="s3">% (</span><span class="s1">rng </span><span class="s3">* </span><span class="s4">2</span><span class="s3">)) - </span><span class="s1">rng</span><span class="s3">) + </span><span class="s1">min</span>
+
+
+<span class="s2">def </span><span class="s1">market</span><span class="s3">(</span><span class="s1">t0</span><span class="s3">=</span><span class="s1">MARKET_OPEN</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Generates a random series of market conditions, 
+        (time, price, spread). 
+    &quot;&quot;&quot;</span>
+    <span class="s2">for </span><span class="s1">hours</span><span class="s3">, </span><span class="s1">px</span><span class="s3">, </span><span class="s1">spd </span><span class="s2">in </span><span class="s1">zip</span><span class="s3">(</span><span class="s1">bwalk</span><span class="s3">(*</span><span class="s1">FREQ</span><span class="s3">), </span><span class="s1">bwalk</span><span class="s3">(*</span><span class="s1">PX</span><span class="s3">), </span><span class="s1">bwalk</span><span class="s3">(*</span><span class="s1">SPD</span><span class="s3">)):</span>
+        <span class="s2">yield </span><span class="s1">t0</span><span class="s3">, </span><span class="s1">px</span><span class="s3">, </span><span class="s1">spd</span>
+        <span class="s1">t0 </span><span class="s3">+= </span><span class="s1">timedelta</span><span class="s3">(</span><span class="s1">hours</span><span class="s3">=</span><span class="s1">abs</span><span class="s3">(</span><span class="s1">hours</span><span class="s3">))</span>
+
+
+<span class="s2">def </span><span class="s1">orders</span><span class="s3">(</span><span class="s1">hist</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Generates a random set of limit orders (time, side, price, size) from 
+        a series of market conditions. 
+    &quot;&quot;&quot;</span>
+    <span class="s2">for </span><span class="s1">t</span><span class="s3">, </span><span class="s1">px</span><span class="s3">, </span><span class="s1">spd </span><span class="s2">in </span><span class="s1">hist</span><span class="s3">:</span>
+        <span class="s1">stock </span><span class="s3">= </span><span class="s6">'ABC' </span><span class="s2">if </span><span class="s1">random</span><span class="s3">() &gt; </span><span class="s4">0.5 </span><span class="s2">else </span><span class="s6">'DEF'</span>
+        <span class="s1">side</span><span class="s3">, </span><span class="s1">d </span><span class="s3">= (</span><span class="s6">'sell'</span><span class="s3">, </span><span class="s4">2</span><span class="s3">) </span><span class="s2">if </span><span class="s1">random</span><span class="s3">() &gt; </span><span class="s4">0.5 </span><span class="s2">else </span><span class="s3">(</span><span class="s6">'buy'</span><span class="s3">, -</span><span class="s4">2</span><span class="s3">)</span>
+        <span class="s1">order </span><span class="s3">= </span><span class="s1">round</span><span class="s3">(</span><span class="s1">normalvariate</span><span class="s3">(</span><span class="s1">px </span><span class="s3">+ (</span><span class="s1">spd </span><span class="s3">/ </span><span class="s1">d</span><span class="s3">), </span><span class="s1">spd </span><span class="s3">/ </span><span class="s1">OVERLAP</span><span class="s3">), </span><span class="s4">2</span><span class="s3">)</span>
+        <span class="s1">size </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s1">abs</span><span class="s3">(</span><span class="s1">normalvariate</span><span class="s3">(</span><span class="s4">0</span><span class="s3">, </span><span class="s4">100</span><span class="s3">)))</span>
+        <span class="s2">yield </span><span class="s1">t</span><span class="s3">, </span><span class="s1">stock</span><span class="s3">, </span><span class="s1">side</span><span class="s3">, </span><span class="s1">order</span><span class="s3">, </span><span class="s1">size</span>
+
+
+<span class="s0">################################################################################</span>
+<span class="s0">#</span>
+<span class="s0"># Order Book</span>
+
+<span class="s2">def </span><span class="s1">add_book</span><span class="s3">(</span><span class="s1">book</span><span class="s3">, </span><span class="s1">order</span><span class="s3">, </span><span class="s1">size</span><span class="s3">, </span><span class="s1">_age</span><span class="s3">=</span><span class="s4">10</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Add a new order and size to a book, and age the rest of the book. &quot;&quot;&quot;</span>
+    <span class="s2">yield </span><span class="s1">order</span><span class="s3">, </span><span class="s1">size</span><span class="s3">, </span><span class="s1">_age</span>
+    <span class="s2">for </span><span class="s1">o</span><span class="s3">, </span><span class="s1">s</span><span class="s3">, </span><span class="s1">age </span><span class="s2">in </span><span class="s1">book</span><span class="s3">:</span>
+        <span class="s2">if </span><span class="s1">age </span><span class="s3">&gt; </span><span class="s4">0</span><span class="s3">:</span>
+            <span class="s2">yield </span><span class="s1">o</span><span class="s3">, </span><span class="s1">s</span><span class="s3">, </span><span class="s1">age </span><span class="s3">- </span><span class="s4">1</span>
+
+
+<span class="s2">def </span><span class="s1">clear_order</span><span class="s3">(</span><span class="s1">order</span><span class="s3">, </span><span class="s1">size</span><span class="s3">, </span><span class="s1">book</span><span class="s3">, </span><span class="s1">op</span><span class="s3">=</span><span class="s1">operator</span><span class="s3">.</span><span class="s1">ge</span><span class="s3">, </span><span class="s1">_notional</span><span class="s3">=</span><span class="s4">0</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Try to clear a sized order against a book, returning a tuple of 
+        (notional, new_book) if successful, and None if not.  _notional is a 
+        recursive accumulator and should not be provided by the caller. 
+    &quot;&quot;&quot;</span>
+    <span class="s3">(</span><span class="s1">top_order</span><span class="s3">, </span><span class="s1">top_size</span><span class="s3">, </span><span class="s1">age</span><span class="s3">), </span><span class="s1">tail </span><span class="s3">= </span><span class="s1">book</span><span class="s3">[</span><span class="s4">0</span><span class="s3">], </span><span class="s1">book</span><span class="s3">[</span><span class="s4">1</span><span class="s3">:]</span>
+    <span class="s2">if </span><span class="s1">op</span><span class="s3">(</span><span class="s1">order</span><span class="s3">, </span><span class="s1">top_order</span><span class="s3">):</span>
+        <span class="s1">_notional </span><span class="s3">+= </span><span class="s1">min</span><span class="s3">(</span><span class="s1">size</span><span class="s3">, </span><span class="s1">top_size</span><span class="s3">) * </span><span class="s1">top_order</span>
+        <span class="s1">sdiff </span><span class="s3">= </span><span class="s1">top_size </span><span class="s3">- </span><span class="s1">size</span>
+        <span class="s2">if </span><span class="s1">sdiff </span><span class="s3">&gt; </span><span class="s4">0</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s1">_notional</span><span class="s3">, </span><span class="s1">list</span><span class="s3">(</span><span class="s1">add_book</span><span class="s3">(</span><span class="s1">tail</span><span class="s3">, </span><span class="s1">top_order</span><span class="s3">, </span><span class="s1">sdiff</span><span class="s3">, </span><span class="s1">age</span><span class="s3">))</span>
+        <span class="s2">elif </span><span class="s1">len</span><span class="s3">(</span><span class="s1">tail</span><span class="s3">) &gt; </span><span class="s4">0</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s1">clear_order</span><span class="s3">(</span><span class="s1">order</span><span class="s3">, -</span><span class="s1">sdiff</span><span class="s3">, </span><span class="s1">tail</span><span class="s3">, </span><span class="s1">op</span><span class="s3">, </span><span class="s1">_notional</span><span class="s3">)</span>
+
+
+<span class="s2">def </span><span class="s1">clear_book</span><span class="s3">(</span><span class="s1">buy</span><span class="s3">=</span><span class="s2">None</span><span class="s3">, </span><span class="s1">sell</span><span class="s3">=</span><span class="s2">None</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Clears all crossed orders from a buy and sell book, returning the new 
+        books uncrossed. 
+    &quot;&quot;&quot;</span>
+    <span class="s2">while </span><span class="s1">buy </span><span class="s2">and </span><span class="s1">sell</span><span class="s3">:</span>
+        <span class="s1">order</span><span class="s3">, </span><span class="s1">size</span><span class="s3">, </span><span class="s1">_ </span><span class="s3">= </span><span class="s1">buy</span><span class="s3">[</span><span class="s4">0</span><span class="s3">]</span>
+        <span class="s1">new_book </span><span class="s3">= </span><span class="s1">clear_order</span><span class="s3">(</span><span class="s1">order</span><span class="s3">, </span><span class="s1">size</span><span class="s3">, </span><span class="s1">sell</span><span class="s3">)</span>
+        <span class="s2">if </span><span class="s1">new_book</span><span class="s3">:</span>
+            <span class="s1">sell </span><span class="s3">= </span><span class="s1">new_book</span><span class="s3">[</span><span class="s4">1</span><span class="s3">]</span>
+            <span class="s1">buy </span><span class="s3">= </span><span class="s1">buy</span><span class="s3">[</span><span class="s4">1</span><span class="s3">:]</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s2">break</span>
+    <span class="s2">return </span><span class="s1">buy</span><span class="s3">, </span><span class="s1">sell</span>
+
+
+<span class="s2">def </span><span class="s1">order_book</span><span class="s3">(</span><span class="s1">orders</span><span class="s3">, </span><span class="s1">book</span><span class="s3">, </span><span class="s1">stock_name</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Generates a series of order books from a series of orders.  Order books 
+        are mutable lists, and mutating them during generation will affect the 
+        next turn! 
+    &quot;&quot;&quot;</span>
+    <span class="s2">for </span><span class="s1">t</span><span class="s3">, </span><span class="s1">stock</span><span class="s3">, </span><span class="s1">side</span><span class="s3">, </span><span class="s1">order</span><span class="s3">, </span><span class="s1">size </span><span class="s2">in </span><span class="s1">orders</span><span class="s3">:</span>
+        <span class="s2">if </span><span class="s1">stock_name </span><span class="s3">== </span><span class="s1">stock</span><span class="s3">:</span>
+            <span class="s1">new </span><span class="s3">= </span><span class="s1">add_book</span><span class="s3">(</span><span class="s1">book</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s1">side</span><span class="s3">, []), </span><span class="s1">order</span><span class="s3">, </span><span class="s1">size</span><span class="s3">)</span>
+            <span class="s1">book</span><span class="s3">[</span><span class="s1">side</span><span class="s3">] = </span><span class="s1">sorted</span><span class="s3">(</span><span class="s1">new</span><span class="s3">, </span><span class="s1">reverse</span><span class="s3">=</span><span class="s1">side </span><span class="s3">== </span><span class="s6">'buy'</span><span class="s3">, </span><span class="s1">key</span><span class="s3">=</span><span class="s2">lambda </span><span class="s1">x</span><span class="s3">: </span><span class="s1">x</span><span class="s3">[</span><span class="s4">0</span><span class="s3">])</span>
+        <span class="s1">bids</span><span class="s3">, </span><span class="s1">asks </span><span class="s3">= </span><span class="s1">clear_book</span><span class="s3">(**</span><span class="s1">book</span><span class="s3">)</span>
+        <span class="s2">yield </span><span class="s1">t</span><span class="s3">, </span><span class="s1">bids</span><span class="s3">, </span><span class="s1">asks</span>
+
+
+<span class="s0">################################################################################</span>
+<span class="s0">#</span>
+<span class="s0"># Test Data Persistence</span>
+
+<span class="s2">def </span><span class="s1">generate_csv</span><span class="s3">():</span>
+    <span class="s5">&quot;&quot;&quot; Generate a CSV of order history. &quot;&quot;&quot;</span>
+    <span class="s2">with </span><span class="s1">open</span><span class="s3">(</span><span class="s6">'test.csv'</span><span class="s3">, </span><span class="s6">'wb'</span><span class="s3">) </span><span class="s2">as </span><span class="s1">f</span><span class="s3">:</span>
+        <span class="s1">writer </span><span class="s3">= </span><span class="s1">csv</span><span class="s3">.</span><span class="s1">writer</span><span class="s3">(</span><span class="s1">f</span><span class="s3">)</span>
+        <span class="s2">for </span><span class="s1">t</span><span class="s3">, </span><span class="s1">stock</span><span class="s3">, </span><span class="s1">side</span><span class="s3">, </span><span class="s1">order</span><span class="s3">, </span><span class="s1">size </span><span class="s2">in </span><span class="s1">orders</span><span class="s3">(</span><span class="s1">market</span><span class="s3">()):</span>
+            <span class="s2">if </span><span class="s1">t </span><span class="s3">&gt; </span><span class="s1">MARKET_OPEN </span><span class="s3">+ </span><span class="s1">SIM_LENGTH</span><span class="s3">:</span>
+                <span class="s2">break</span>
+            <span class="s1">writer</span><span class="s3">.</span><span class="s1">writerow</span><span class="s3">([</span><span class="s1">t</span><span class="s3">, </span><span class="s1">stock</span><span class="s3">, </span><span class="s1">side</span><span class="s3">, </span><span class="s1">order</span><span class="s3">, </span><span class="s1">size</span><span class="s3">])</span>
+
+
+<span class="s2">def </span><span class="s1">read_csv</span><span class="s3">():</span>
+    <span class="s5">&quot;&quot;&quot; Read a CSV or order history into a list. &quot;&quot;&quot;</span>
+    <span class="s2">with </span><span class="s1">open</span><span class="s3">(</span><span class="s6">'test.csv'</span><span class="s3">, </span><span class="s6">'rt'</span><span class="s3">) </span><span class="s2">as </span><span class="s1">f</span><span class="s3">:</span>
+        <span class="s2">for </span><span class="s1">time</span><span class="s3">, </span><span class="s1">stock</span><span class="s3">, </span><span class="s1">side</span><span class="s3">, </span><span class="s1">order</span><span class="s3">, </span><span class="s1">size </span><span class="s2">in </span><span class="s1">csv</span><span class="s3">.</span><span class="s1">reader</span><span class="s3">(</span><span class="s1">f</span><span class="s3">):</span>
+            <span class="s2">yield </span><span class="s1">dateutil</span><span class="s3">.</span><span class="s1">parser</span><span class="s3">.</span><span class="s1">parse</span><span class="s3">(</span><span class="s1">time</span><span class="s3">), </span><span class="s1">stock</span><span class="s3">, </span><span class="s1">side</span><span class="s3">, </span><span class="s1">float</span><span class="s3">(</span><span class="s1">order</span><span class="s3">), </span><span class="s1">int</span><span class="s3">(</span><span class="s1">size</span><span class="s3">)</span>
+
+
+<span class="s0">################################################################################</span>
+<span class="s0">#</span>
+<span class="s0"># Server</span>
+
+<span class="s2">class </span><span class="s1">ThreadedHTTPServer</span><span class="s3">(</span><span class="s1">ThreadingMixIn</span><span class="s3">, </span><span class="s1">http</span><span class="s3">.</span><span class="s1">server</span><span class="s3">.</span><span class="s1">HTTPServer</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Boilerplate class for a multithreaded HTTP Server, with working 
+        shutdown. 
+    &quot;&quot;&quot;</span>
+    <span class="s1">allow_reuse_address </span><span class="s3">= </span><span class="s2">True</span>
+
+    <span class="s2">def </span><span class="s1">shutdown</span><span class="s3">(</span><span class="s1">self</span><span class="s3">):</span>
+        <span class="s5">&quot;&quot;&quot; Override MRO to shutdown properly. &quot;&quot;&quot;</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">socket</span><span class="s3">.</span><span class="s1">close</span><span class="s3">()</span>
+        <span class="s1">http</span><span class="s3">.</span><span class="s1">server</span><span class="s3">.</span><span class="s1">HTTPServer</span><span class="s3">.</span><span class="s1">shutdown</span><span class="s3">(</span><span class="s1">self</span><span class="s3">)</span>
+
+
+<span class="s2">def </span><span class="s1">route</span><span class="s3">(</span><span class="s1">path</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Decorator for a simple bottle-like web framework.  Routes path to the 
+        decorated method, with the rest of the path as an argument. 
+    &quot;&quot;&quot;</span>
+
+    <span class="s2">def </span><span class="s1">_route</span><span class="s3">(</span><span class="s1">f</span><span class="s3">):</span>
+        <span class="s1">setattr</span><span class="s3">(</span><span class="s1">f</span><span class="s3">, </span><span class="s6">'__route__'</span><span class="s3">, </span><span class="s1">path</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s1">f</span>
+
+    <span class="s2">return </span><span class="s1">_route</span>
+
+
+<span class="s2">def </span><span class="s1">read_params</span><span class="s3">(</span><span class="s1">path</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Read query parameters into a dictionary if they are parseable, 
+        otherwise returns None. 
+    &quot;&quot;&quot;</span>
+    <span class="s1">query </span><span class="s3">= </span><span class="s1">path</span><span class="s3">.</span><span class="s1">split</span><span class="s3">(</span><span class="s6">'?'</span><span class="s3">)</span>
+    <span class="s2">if </span><span class="s1">len</span><span class="s3">(</span><span class="s1">query</span><span class="s3">) &gt; </span><span class="s4">1</span><span class="s3">:</span>
+        <span class="s1">query </span><span class="s3">= </span><span class="s1">query</span><span class="s3">[</span><span class="s4">1</span><span class="s3">].</span><span class="s1">split</span><span class="s3">(</span><span class="s6">'&amp;'</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s1">dict</span><span class="s3">(</span><span class="s1">map</span><span class="s3">(</span><span class="s2">lambda </span><span class="s1">x</span><span class="s3">: </span><span class="s1">x</span><span class="s3">.</span><span class="s1">split</span><span class="s3">(</span><span class="s6">'='</span><span class="s3">), </span><span class="s1">query</span><span class="s3">))</span>
+
+
+<span class="s2">def </span><span class="s1">get</span><span class="s3">(</span><span class="s1">req_handler</span><span class="s3">, </span><span class="s1">routes</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Map a request to the appropriate route of a routes instance. &quot;&quot;&quot;</span>
+    <span class="s2">for </span><span class="s1">name</span><span class="s3">, </span><span class="s1">handler </span><span class="s2">in </span><span class="s1">routes</span><span class="s3">.</span><span class="s1">__class__</span><span class="s3">.</span><span class="s1">__dict__</span><span class="s3">.</span><span class="s1">items</span><span class="s3">():</span>
+        <span class="s2">if </span><span class="s1">hasattr</span><span class="s3">(</span><span class="s1">handler</span><span class="s3">, </span><span class="s6">&quot;__route__&quot;</span><span class="s3">):</span>
+            <span class="s2">if None </span><span class="s3">!= </span><span class="s1">re</span><span class="s3">.</span><span class="s1">search</span><span class="s3">(</span><span class="s1">handler</span><span class="s3">.</span><span class="s1">__route__</span><span class="s3">, </span><span class="s1">req_handler</span><span class="s3">.</span><span class="s1">path</span><span class="s3">):</span>
+                <span class="s1">req_handler</span><span class="s3">.</span><span class="s1">send_response</span><span class="s3">(</span><span class="s4">200</span><span class="s3">)</span>
+                <span class="s1">req_handler</span><span class="s3">.</span><span class="s1">send_header</span><span class="s3">(</span><span class="s6">'Content-Type'</span><span class="s3">, </span><span class="s6">'application/json'</span><span class="s3">)</span>
+                <span class="s1">req_handler</span><span class="s3">.</span><span class="s1">send_header</span><span class="s3">(</span><span class="s6">'Access-Control-Allow-Origin'</span><span class="s3">, </span><span class="s6">'*'</span><span class="s3">)</span>
+                <span class="s1">req_handler</span><span class="s3">.</span><span class="s1">end_headers</span><span class="s3">()</span>
+                <span class="s1">params </span><span class="s3">= </span><span class="s1">read_params</span><span class="s3">(</span><span class="s1">req_handler</span><span class="s3">.</span><span class="s1">path</span><span class="s3">)</span>
+                <span class="s1">data </span><span class="s3">= </span><span class="s1">json</span><span class="s3">.</span><span class="s1">dumps</span><span class="s3">(</span><span class="s1">handler</span><span class="s3">(</span><span class="s1">routes</span><span class="s3">, </span><span class="s1">params</span><span class="s3">)) + </span><span class="s6">'</span><span class="s2">\n</span><span class="s6">'</span>
+                <span class="s1">req_handler</span><span class="s3">.</span><span class="s1">wfile</span><span class="s3">.</span><span class="s1">write</span><span class="s3">(</span><span class="s1">bytes</span><span class="s3">(</span><span class="s1">data</span><span class="s3">, </span><span class="s1">encoding</span><span class="s3">=</span><span class="s6">'utf-8'</span><span class="s3">))</span>
+                <span class="s2">return</span>
+
+
+<span class="s2">def </span><span class="s1">run</span><span class="s3">(</span><span class="s1">routes</span><span class="s3">, </span><span class="s1">host</span><span class="s3">=</span><span class="s6">'0.0.0.0'</span><span class="s3">, </span><span class="s1">port</span><span class="s3">=</span><span class="s4">8080</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; Runs a class as a server whose methods have been decorated with 
+        @route. 
+    &quot;&quot;&quot;</span>
+
+    <span class="s2">class </span><span class="s1">RequestHandler</span><span class="s3">(</span><span class="s1">http</span><span class="s3">.</span><span class="s1">server</span><span class="s3">.</span><span class="s1">BaseHTTPRequestHandler</span><span class="s3">):</span>
+        <span class="s2">def </span><span class="s1">log_message</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, *</span><span class="s1">args</span><span class="s3">, **</span><span class="s1">kwargs</span><span class="s3">):</span>
+            <span class="s2">pass</span>
+
+        <span class="s2">def </span><span class="s1">do_GET</span><span class="s3">(</span><span class="s1">self</span><span class="s3">):</span>
+            <span class="s1">get</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">routes</span><span class="s3">)</span>
+
+    <span class="s1">server </span><span class="s3">= </span><span class="s1">ThreadedHTTPServer</span><span class="s3">((</span><span class="s1">host</span><span class="s3">, </span><span class="s1">port</span><span class="s3">), </span><span class="s1">RequestHandler</span><span class="s3">)</span>
+    <span class="s1">thread </span><span class="s3">= </span><span class="s1">threading</span><span class="s3">.</span><span class="s1">Thread</span><span class="s3">(</span><span class="s1">target</span><span class="s3">=</span><span class="s1">server</span><span class="s3">.</span><span class="s1">serve_forever</span><span class="s3">)</span>
+    <span class="s1">thread</span><span class="s3">.</span><span class="s1">daemon </span><span class="s3">= </span><span class="s2">True</span>
+    <span class="s1">thread</span><span class="s3">.</span><span class="s1">start</span><span class="s3">()</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">'HTTP server started on port 8080'</span><span class="s3">)</span>
+    <span class="s2">while True</span><span class="s3">:</span>
+        <span class="s2">from </span><span class="s1">time </span><span class="s2">import </span><span class="s1">sleep</span>
+        <span class="s1">sleep</span><span class="s3">(</span><span class="s4">1</span><span class="s3">)</span>
+    <span class="s1">server</span><span class="s3">.</span><span class="s1">shutdown</span><span class="s3">()</span>
+    <span class="s1">server</span><span class="s3">.</span><span class="s1">start</span><span class="s3">()</span>
+    <span class="s1">server</span><span class="s3">.</span><span class="s1">waitForThread</span><span class="s3">()</span>
+
+
+<span class="s0">################################################################################</span>
+<span class="s0">#</span>
+<span class="s0"># App</span>
+
+<span class="s1">ops </span><span class="s3">= {</span>
+    <span class="s6">'buy'</span><span class="s3">: </span><span class="s1">operator</span><span class="s3">.</span><span class="s1">le</span><span class="s3">,</span>
+    <span class="s6">'sell'</span><span class="s3">: </span><span class="s1">operator</span><span class="s3">.</span><span class="s1">ge</span><span class="s3">,</span>
+<span class="s3">}</span>
+
+
+<span class="s2">class </span><span class="s1">App</span><span class="s3">(</span><span class="s1">object</span><span class="s3">):</span>
+    <span class="s5">&quot;&quot;&quot; The trading game server application. &quot;&quot;&quot;</span>
+
+    <span class="s2">def </span><span class="s1">__init__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">):</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">_book_1 </span><span class="s3">= </span><span class="s1">dict</span><span class="s3">()</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">_book_2 </span><span class="s3">= </span><span class="s1">dict</span><span class="s3">()</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">_data_1 </span><span class="s3">= </span><span class="s1">order_book</span><span class="s3">(</span><span class="s1">read_csv</span><span class="s3">(), </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_book_1</span><span class="s3">, </span><span class="s6">'ABC'</span><span class="s3">)</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">_data_2 </span><span class="s3">= </span><span class="s1">order_book</span><span class="s3">(</span><span class="s1">read_csv</span><span class="s3">(), </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_book_2</span><span class="s3">, </span><span class="s6">'DEF'</span><span class="s3">)</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">_rt_start </span><span class="s3">= </span><span class="s1">datetime</span><span class="s3">.</span><span class="s1">now</span><span class="s3">()</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">_sim_start</span><span class="s3">, </span><span class="s1">_</span><span class="s3">, </span><span class="s1">_ </span><span class="s3">= </span><span class="s1">next</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">_data_1</span><span class="s3">)</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">read_10_first_lines</span><span class="s3">()</span>
+
+    <span class="s3">@</span><span class="s1">property</span>
+    <span class="s2">def </span><span class="s1">_current_book_1</span><span class="s3">(</span><span class="s1">self</span><span class="s3">):</span>
+        <span class="s2">for </span><span class="s1">t</span><span class="s3">, </span><span class="s1">bids</span><span class="s3">, </span><span class="s1">asks </span><span class="s2">in </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_data_1</span><span class="s3">:</span>
+            <span class="s2">if </span><span class="s1">REALTIME</span><span class="s3">:</span>
+                <span class="s2">while </span><span class="s1">t </span><span class="s3">&gt; </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_sim_start </span><span class="s3">+ (</span><span class="s1">datetime</span><span class="s3">.</span><span class="s1">now</span><span class="s3">() - </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_rt_start</span><span class="s3">):</span>
+                    <span class="s2">yield </span><span class="s1">t</span><span class="s3">, </span><span class="s1">bids</span><span class="s3">, </span><span class="s1">asks</span>
+            <span class="s2">else</span><span class="s3">:</span>
+                <span class="s2">yield </span><span class="s1">t</span><span class="s3">, </span><span class="s1">bids</span><span class="s3">, </span><span class="s1">asks</span>
+
+    <span class="s3">@</span><span class="s1">property</span>
+    <span class="s2">def </span><span class="s1">_current_book_2</span><span class="s3">(</span><span class="s1">self</span><span class="s3">):</span>
+        <span class="s2">for </span><span class="s1">t</span><span class="s3">, </span><span class="s1">bids</span><span class="s3">, </span><span class="s1">asks </span><span class="s2">in </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_data_2</span><span class="s3">:</span>
+            <span class="s2">if </span><span class="s1">REALTIME</span><span class="s3">:</span>
+                <span class="s2">while </span><span class="s1">t </span><span class="s3">&gt; </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_sim_start </span><span class="s3">+ (</span><span class="s1">datetime</span><span class="s3">.</span><span class="s1">now</span><span class="s3">() - </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_rt_start</span><span class="s3">):</span>
+                    <span class="s2">yield </span><span class="s1">t</span><span class="s3">, </span><span class="s1">bids</span><span class="s3">, </span><span class="s1">asks</span>
+            <span class="s2">else</span><span class="s3">:</span>
+                <span class="s2">yield </span><span class="s1">t</span><span class="s3">, </span><span class="s1">bids</span><span class="s3">, </span><span class="s1">asks</span>
+
+    <span class="s2">def </span><span class="s1">read_10_first_lines</span><span class="s3">(</span><span class="s1">self</span><span class="s3">):</span>
+        <span class="s2">for </span><span class="s1">_ </span><span class="s2">in </span><span class="s1">iter</span><span class="s3">(</span><span class="s1">range</span><span class="s3">(</span><span class="s4">10</span><span class="s3">)):</span>
+            <span class="s1">next</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">_data_1</span><span class="s3">)</span>
+            <span class="s1">next</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">_data_2</span><span class="s3">)</span>
+
+    <span class="s3">@</span><span class="s1">route</span><span class="s3">(</span><span class="s6">'/query'</span><span class="s3">)</span>
+    <span class="s2">def </span><span class="s1">handle_query</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">x</span><span class="s3">):</span>
+        <span class="s5">&quot;&quot;&quot; Takes no arguments, and yields the current top of the book;  the 
+            best bid and ask and their sizes 
+        &quot;&quot;&quot;</span>
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s1">t1</span><span class="s3">, </span><span class="s1">bids1</span><span class="s3">, </span><span class="s1">asks1 </span><span class="s3">= </span><span class="s1">next</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">_current_book_1</span><span class="s3">)</span>
+            <span class="s1">t2</span><span class="s3">, </span><span class="s1">bids2</span><span class="s3">, </span><span class="s1">asks2 </span><span class="s3">= </span><span class="s1">next</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">_current_book_2</span><span class="s3">)</span>
+        <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;error getting stocks...reinitalizing app&quot;</span><span class="s3">)</span>
+            <span class="s1">self</span><span class="s3">.</span><span class="s1">__init__</span><span class="s3">()</span>
+            <span class="s1">t1</span><span class="s3">, </span><span class="s1">bids1</span><span class="s3">, </span><span class="s1">asks1 </span><span class="s3">= </span><span class="s1">next</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">_current_book_1</span><span class="s3">)</span>
+            <span class="s1">t2</span><span class="s3">, </span><span class="s1">bids2</span><span class="s3">, </span><span class="s1">asks2 </span><span class="s3">= </span><span class="s1">next</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">_current_book_2</span><span class="s3">)</span>
+        <span class="s1">t </span><span class="s3">= </span><span class="s1">t1 </span><span class="s2">if </span><span class="s1">t1 </span><span class="s3">&gt; </span><span class="s1">t2 </span><span class="s2">else </span><span class="s1">t2</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">'Query received @ t%s' </span><span class="s3">% </span><span class="s1">t</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s3">[{</span>
+            <span class="s6">'id'</span><span class="s3">: </span><span class="s1">x </span><span class="s2">and </span><span class="s1">x</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s6">'id'</span><span class="s3">, </span><span class="s2">None</span><span class="s3">),</span>
+            <span class="s6">'stock'</span><span class="s3">: </span><span class="s6">'ABC'</span><span class="s3">,</span>
+            <span class="s6">'timestamp'</span><span class="s3">: </span><span class="s1">str</span><span class="s3">(</span><span class="s1">t</span><span class="s3">),</span>
+            <span class="s6">'top_bid'</span><span class="s3">: </span><span class="s1">bids1 </span><span class="s2">and </span><span class="s3">{</span>
+                <span class="s6">'price'</span><span class="s3">: </span><span class="s1">bids1</span><span class="s3">[</span><span class="s4">0</span><span class="s3">][</span><span class="s4">0</span><span class="s3">],</span>
+                <span class="s6">'size'</span><span class="s3">: </span><span class="s1">bids1</span><span class="s3">[</span><span class="s4">0</span><span class="s3">][</span><span class="s4">1</span><span class="s3">]</span>
+            <span class="s3">},</span>
+            <span class="s6">'top_ask'</span><span class="s3">: </span><span class="s1">asks1 </span><span class="s2">and </span><span class="s3">{</span>
+                <span class="s6">'price'</span><span class="s3">: </span><span class="s1">asks1</span><span class="s3">[</span><span class="s4">0</span><span class="s3">][</span><span class="s4">0</span><span class="s3">],</span>
+                <span class="s6">'size'</span><span class="s3">: </span><span class="s1">asks1</span><span class="s3">[</span><span class="s4">0</span><span class="s3">][</span><span class="s4">1</span><span class="s3">]</span>
+            <span class="s3">}</span>
+        <span class="s3">},</span>
+            <span class="s3">{</span>
+                <span class="s6">'id'</span><span class="s3">: </span><span class="s1">x </span><span class="s2">and </span><span class="s1">x</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s6">'id'</span><span class="s3">, </span><span class="s2">None</span><span class="s3">),</span>
+                <span class="s6">'stock'</span><span class="s3">: </span><span class="s6">'DEF'</span><span class="s3">,</span>
+                <span class="s6">'timestamp'</span><span class="s3">: </span><span class="s1">str</span><span class="s3">(</span><span class="s1">t</span><span class="s3">),</span>
+                <span class="s6">'top_bid'</span><span class="s3">: </span><span class="s1">bids2 </span><span class="s2">and </span><span class="s3">{</span>
+                    <span class="s6">'price'</span><span class="s3">: </span><span class="s1">bids2</span><span class="s3">[</span><span class="s4">0</span><span class="s3">][</span><span class="s4">0</span><span class="s3">],</span>
+                    <span class="s6">'size'</span><span class="s3">: </span><span class="s1">bids2</span><span class="s3">[</span><span class="s4">0</span><span class="s3">][</span><span class="s4">1</span><span class="s3">]</span>
+                <span class="s3">},</span>
+                <span class="s6">'top_ask'</span><span class="s3">: </span><span class="s1">asks2 </span><span class="s2">and </span><span class="s3">{</span>
+                    <span class="s6">'price'</span><span class="s3">: </span><span class="s1">asks2</span><span class="s3">[</span><span class="s4">0</span><span class="s3">][</span><span class="s4">0</span><span class="s3">],</span>
+                    <span class="s6">'size'</span><span class="s3">: </span><span class="s1">asks2</span><span class="s3">[</span><span class="s4">0</span><span class="s3">][</span><span class="s4">1</span><span class="s3">]</span>
+                <span class="s3">}</span>
+            <span class="s3">}]</span>
+
+
+<span class="s0">################################################################################</span>
+<span class="s0">#</span>
+<span class="s0"># Main</span>
+
+<span class="s2">if </span><span class="s1">__name__ </span><span class="s3">== </span><span class="s6">'__main__'</span><span class="s3">:</span>
+    <span class="s2">if not </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">isfile</span><span class="s3">(</span><span class="s6">'test.csv'</span><span class="s3">):</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;No data found, generating...&quot;</span><span class="s3">)</span>
+        <span class="s1">generate_csv</span><span class="s3">()</span>
+    <span class="s1">run</span><span class="s3">(</span><span class="s1">App</span><span class="s3">())</span>
+</pre>
+</body>
+</html>

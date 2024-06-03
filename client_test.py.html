@@ -1,0 +1,46 @@
+<html>
+<head>
+<title>client_test.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #6aab73;}
+.s4 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+client_test.py</font>
+</center></td></tr></table>
+<pre><span class="s0">import </span><span class="s1">unittest</span>
+<span class="s0">from </span><span class="s1">client3 </span><span class="s0">import </span><span class="s1">getDataPoint</span>
+
+<span class="s0">class </span><span class="s1">ClientTest</span><span class="s2">(</span><span class="s1">unittest</span><span class="s2">.</span><span class="s1">TestCase</span><span class="s2">):</span>
+  <span class="s0">def </span><span class="s1">test_getDataPoint_calculatePrice</span><span class="s2">(</span><span class="s1">self</span><span class="s2">):</span>
+    <span class="s1">quotes </span><span class="s2">= [</span>
+      <span class="s2">{</span><span class="s3">'top_ask'</span><span class="s2">: {</span><span class="s3">'price'</span><span class="s2">: </span><span class="s4">121.2</span><span class="s2">, </span><span class="s3">'size'</span><span class="s2">: </span><span class="s4">36</span><span class="s2">}, </span><span class="s3">'timestamp'</span><span class="s2">: </span><span class="s3">'2019-02-11 22:06:30.572453'</span><span class="s2">, </span><span class="s3">'top_bid'</span><span class="s2">: {</span><span class="s3">'price'</span><span class="s2">: </span><span class="s4">120.48</span><span class="s2">, </span><span class="s3">'size'</span><span class="s2">: </span><span class="s4">109</span><span class="s2">}, </span><span class="s3">'id'</span><span class="s2">: </span><span class="s3">'0.109974697771'</span><span class="s2">, </span><span class="s3">'stock'</span><span class="s2">: </span><span class="s3">'ABC'</span><span class="s2">},</span>
+      <span class="s2">{</span><span class="s3">'top_ask'</span><span class="s2">: {</span><span class="s3">'price'</span><span class="s2">: </span><span class="s4">121.68</span><span class="s2">, </span><span class="s3">'size'</span><span class="s2">: </span><span class="s4">4</span><span class="s2">}, </span><span class="s3">'timestamp'</span><span class="s2">: </span><span class="s3">'2019-02-11 22:06:30.572453'</span><span class="s2">, </span><span class="s3">'top_bid'</span><span class="s2">: {</span><span class="s3">'price'</span><span class="s2">: </span><span class="s4">117.87</span><span class="s2">, </span><span class="s3">'size'</span><span class="s2">: </span><span class="s4">81</span><span class="s2">}, </span><span class="s3">'id'</span><span class="s2">: </span><span class="s3">'0.109974697771'</span><span class="s2">, </span><span class="s3">'stock'</span><span class="s2">: </span><span class="s3">'DEF'</span><span class="s2">}</span>
+    <span class="s2">]</span>
+    <span class="s3">&quot;&quot;&quot; ------------ Add the assertion below ------------ &quot;&quot;&quot;</span>
+
+  <span class="s0">def </span><span class="s1">test_getDataPoint_calculatePriceBidGreaterThanAsk</span><span class="s2">(</span><span class="s1">self</span><span class="s2">):</span>
+    <span class="s1">quotes </span><span class="s2">= [</span>
+      <span class="s2">{</span><span class="s3">'top_ask'</span><span class="s2">: {</span><span class="s3">'price'</span><span class="s2">: </span><span class="s4">119.2</span><span class="s2">, </span><span class="s3">'size'</span><span class="s2">: </span><span class="s4">36</span><span class="s2">}, </span><span class="s3">'timestamp'</span><span class="s2">: </span><span class="s3">'2019-02-11 22:06:30.572453'</span><span class="s2">, </span><span class="s3">'top_bid'</span><span class="s2">: {</span><span class="s3">'price'</span><span class="s2">: </span><span class="s4">120.48</span><span class="s2">, </span><span class="s3">'size'</span><span class="s2">: </span><span class="s4">109</span><span class="s2">}, </span><span class="s3">'id'</span><span class="s2">: </span><span class="s3">'0.109974697771'</span><span class="s2">, </span><span class="s3">'stock'</span><span class="s2">: </span><span class="s3">'ABC'</span><span class="s2">},</span>
+      <span class="s2">{</span><span class="s3">'top_ask'</span><span class="s2">: {</span><span class="s3">'price'</span><span class="s2">: </span><span class="s4">121.68</span><span class="s2">, </span><span class="s3">'size'</span><span class="s2">: </span><span class="s4">4</span><span class="s2">}, </span><span class="s3">'timestamp'</span><span class="s2">: </span><span class="s3">'2019-02-11 22:06:30.572453'</span><span class="s2">, </span><span class="s3">'top_bid'</span><span class="s2">: {</span><span class="s3">'price'</span><span class="s2">: </span><span class="s4">117.87</span><span class="s2">, </span><span class="s3">'size'</span><span class="s2">: </span><span class="s4">81</span><span class="s2">}, </span><span class="s3">'id'</span><span class="s2">: </span><span class="s3">'0.109974697771'</span><span class="s2">, </span><span class="s3">'stock'</span><span class="s2">: </span><span class="s3">'DEF'</span><span class="s2">}</span>
+    <span class="s2">]</span>
+    <span class="s3">&quot;&quot;&quot; ------------ Add the assertion below ------------ &quot;&quot;&quot;</span>
+
+
+  <span class="s3">&quot;&quot;&quot; ------------ Add more unit tests ------------ &quot;&quot;&quot;</span>
+
+
+
+<span class="s0">if </span><span class="s1">__name__ </span><span class="s2">== </span><span class="s3">'__main__'</span><span class="s2">:</span>
+    <span class="s1">unittest</span><span class="s2">.</span><span class="s1">main</span><span class="s2">()</span>
+</pre>
+</body>
+</html>
